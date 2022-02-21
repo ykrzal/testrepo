@@ -56,4 +56,18 @@ Resources:
             Tags:
               - Key: Name
                 Value: BUILDS
+                
+      InstanceSecurityGroup4:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            VpcId: !Ref VpcId
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 4
+            SecurityGroupIngress:
+              - IpProtocol: tcp
+                FromPort: '23'
+                ToPort: '23'
+                CidrIp: '52.59.6.94/32'
+            Tags:
+              - Key: Name
+                Value: BUILDS
 
