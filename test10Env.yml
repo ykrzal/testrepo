@@ -6,6 +6,12 @@ Parameters:
   VpcId:
     Description: "VpcId"
     Type: String
+  name:
+    Description: "VpcId"
+    Type: String
+  branch:
+    Description: "VpcId"
+    Type: String
 
 Resources:
   ## SG  ###########################################################################
