@@ -15,7 +15,7 @@ Parameters:
 
 Resources:
   ## SG  ###########################################################################
-      InstanceSecurityGroup1:
+      InstanceSecurityGroup:
         Type: AWS::EC2::SecurityGroup
         Properties:
             VpcId: !Ref VpcId
