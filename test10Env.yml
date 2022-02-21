@@ -15,11 +15,11 @@ Parameters:
 
 Resources:
   ## SG  ###########################################################################
-      InstanceSecurityGroup:
+      InstanceSecurityGroup1:
         Type: AWS::EC2::SecurityGroup
         Properties:
             VpcId: !Ref VpcId
-            GroupDescription: Allow all SSH from TM VPN BUILD CLI
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 1
             SecurityGroupIngress:
               - IpProtocol: tcp
                 FromPort: '22'
@@ -29,11 +29,25 @@ Resources:
               - Key: Name
                 Value: BUILDS
       
-      InstanceSecurityGroup1:
+      InstanceSecurityGroup2:
         Type: AWS::EC2::SecurityGroup
         Properties:
             VpcId: !Ref VpcId
-            GroupDescription: Allow all SSH from TM VPN BUILD CLI
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 2
+            SecurityGroupIngress:
+              - IpProtocol: tcp
+                FromPort: '23'
+                ToPort: '23'
+                CidrIp: '52.59.6.94/32'
+            Tags:
+              - Key: Name
+                Value: BUILDS
+                
+      InstanceSecurityGroup3:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            VpcId: !Ref VpcId
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 3
             SecurityGroupIngress:
               - IpProtocol: tcp
                 FromPort: '23'
