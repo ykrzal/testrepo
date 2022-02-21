@@ -99,7 +99,7 @@ Resources:
               - Key: Name
                 Value: !Ref name
        
-      InstanceSecurityGroup7:
+      InstanceSecurityGroup8:
         Type: AWS::EC2::SecurityGroup
         Properties:
             VpcId: !Ref VpcId
