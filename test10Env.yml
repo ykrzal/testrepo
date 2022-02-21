@@ -85,11 +85,11 @@ Resources:
               - Key: Name
                 Value: !Ref name
                 
-      InstanceSecurityGroup6:
+      InstanceSecurityGroup7:
         Type: AWS::EC2::SecurityGroup
         Properties:
             VpcId: !Ref VpcId
-            GroupDescription: Allow all SSH from TM VPN BUILD CLI 6
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 7
             SecurityGroupIngress:
               - IpProtocol: tcp
                 FromPort: '22'
