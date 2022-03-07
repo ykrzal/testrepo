@@ -1,0 +1,645 @@
+#-------------------------------------------------------------------------------#
+#                      Powered by Yurii Martyniuk                               #
+#                                                                               #
+#                     My first Cloudformation stack !                           #  
+#                                                                               #
+#-------------------------------------------------------------------------------#
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create VPC
+
+Metadata:
+  Author:
+    Description: Creator Yurii Martyniuk
+
+Parameters:
+  VPCCidr:
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    Description: VPC CIDR Ip Range
+    Type: String
+    Default: "10.10.0.0/16"
+
+  BucketName:
+    Description: "Name of S3 bucket for our VPC FlowLog"
+    Type: String
+
+  Prefix:
+    Description: "Used as prefix for security group names. Example: XaaS-Prod"
+    Type: String
+
+  NumberOfAZs:
+    Description: Enter number of AZS.
+    Type: String
+    AllowedValues:
+      - "2"
+
+  CombinationAZs:
+    Description: Depend to count of AZs select combination. Only for 2 AZS (check aws region available azs)
+    Type: String
+    AllowedValues:
+      - 'a,b'
+
+  AtlasVPCCidr:
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    Description: Atlas VPC CIDR Ip Range
+    Type: String
+    Default: "192.168.248.0/21"
+
+  TrafficType:
+    Description: 'The type of traffic that you wish to log.'
+    Type: String
+    Default: ALL
+    AllowedValues:
+    - ALL
+    - ACCEPT
+    - REJECT
+
+  VpcFlowLogsBucketName:
+    Description: 'Optional - The name of an S3 bucket where you want flow logs to be stored. If you leave this empty, this stack will create S3 bucket for you.'
+    Type: String
+    Default: ''
+
+  VpcFlowLogsFilePrefix:
+    Description: (Optional) - The log file prefix in S3 bucket that comes after s3 bucket name
+    Type: String
+    Default: ''
+
+################################################################
+########################## Conditions ##########################
+################################################################
+
+Conditions:
+
+  CombinationAB: !Equals
+    - !Ref CombinationAZs
+    - 'a,b'
+
+  VpcLogBucketCondition: !Equals [!Ref VpcFlowLogsBucketName, '']
+  ExistingBucket: !Not [!Equals [!Ref VpcFlowLogsBucketName, '']]
+  HasLogFilePrefix: !Not [!Equals [!Ref VpcFlowLogsFilePrefix, '']]
+
+################################################################
+###################### End Conditions ##########################
+################################################################
+
+Resources:
+
+  VPC:
+    Type: AWS::EC2::VPC
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      CidrBlock: !Ref VPCCidr
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ""
+            - - !Ref Prefix
+              - -VPC
+
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ""
+            - - !Ref Prefix
+              - -IGW
+
+  VPCGatewayAttachment:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  EndpointS3:
+    Type: "AWS::EC2::VPCEndpoint"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      PolicyDocument: 
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal: "*"
+          Action:
+            - "*"
+          Resource:
+            - "*"
+      RouteTableIds:
+        - !Ref RouteTablePublic
+        - !If [CombinationAB, !Ref RouteTablePrivate, !Ref "AWS::NoValue"]
+        - !If [CombinationAB, !Ref RouteTableBPrivate, !Ref "AWS::NoValue"]
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcId: !Ref VPC
+
+
+  ## ECS Cluster ####################################################################
+  ECSCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      ClusterName: !Join [ "-", [ Zoom, Cluster3 ] ]
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ Zoom, Cluster3 ] ]
+
+
+  ##############################################################################
+  ########################## SUBNETS ###########################################
+  ##############################################################################
+
+  ######### Public A B #############
+  SubnetAPublic:
+    Type: "AWS::EC2::Subnet"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      CidrBlock: !Select [ 0, Fn::Cidr: [ !GetAtt VPC.CidrBlock, 1, 8 ]]
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: "PublicSubnet - A"
+
+  SubnetBPublic:
+    Type: "AWS::EC2::Subnet"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      AvailabilityZone: !Select [ 1, !GetAZs ]
+      CidrBlock: !Select [ 1, Fn::Cidr: [ !GetAtt VPC.CidrBlock, 2, 8 ]]
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: "PublicSubnet - B"
+
+  ######### Private Lambda A B #########
+  SubnetLambdaAPrivate:
+    Type: "AWS::EC2::Subnet"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      CidrBlock: !Select [ 1, Fn::Cidr: [ !GetAtt VPC.CidrBlock, 2, 12 ]]
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: "Private Lambda - A"
+  
+  SubnetLambdaBPrivate:
+    Type: "AWS::EC2::Subnet"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      AvailabilityZone: !Select [ 1, !GetAZs ]
+      CidrBlock: !Select [ 2, Fn::Cidr: [ !GetAtt VPC.CidrBlock, 3, 12 ]]
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: "Private Lambda - B"
+
+  ##############################################################################
+  ########################## Route Tables ######################################
+  ##############################################################################
+
+  RouteTablePublic:
+    Type: "AWS::EC2::RouteTable"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: InternetRoutable
+
+  RouteTablePrivate:
+    Type: "AWS::EC2::RouteTable"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: "NAT-RouteTable-A"
+
+  RouteTableBPrivate:
+    Type: "AWS::EC2::RouteTable"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: "NAT-RouteTable-B"
+
+  ##############################################################################
+  ########################## EIP/Routes/NAT ####################################
+  ##############################################################################
+
+  ######### EIP A/B ################################
+  EIPA:
+    Type: "AWS::EC2::EIP"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: EIP-Lambda-A
+
+  EIPB:
+    Type: "AWS::EC2::EIP"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: EIP-Lambda-B
+
+######### NatGateway A/B ###########################
+  NatGatewayA:
+    Type: "AWS::EC2::NatGateway"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      AllocationId: !GetAtt "EIPA.AllocationId"
+      SubnetId: !Ref SubnetAPublic
+      Tags:
+        - Key: Name
+          Value: NAT-Lambda-A
+
+  NatGatewayB:
+    Type: "AWS::EC2::NatGateway"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      AllocationId: !GetAtt "EIPB.AllocationId"
+      SubnetId: !Ref SubnetBPublic
+      Tags:
+        - Key: Name
+          Value: NAT-Lambda-B
+
+  ######### Route A/B ################################
+  PublicNatARoute:
+    Type: "AWS::EC2::Route"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !Ref NatGatewayA
+
+  PublicNatBRoute:
+    Type: "AWS::EC2::Route"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      RouteTableId: !Ref RouteTableBPrivate
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !Ref NatGatewayB
+
+  ##############################################################################
+  ############## Route Tables Subnet Associations ##############################
+  ##############################################################################
+
+  RouteTableAssociationAPublic:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      SubnetId: !Ref SubnetAPublic
+      RouteTableId: !Ref RouteTablePublic
+
+  RouteTableAssociationBPublic:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      SubnetId: !Ref SubnetBPublic
+      RouteTableId: !Ref RouteTablePublic
+
+  RouteTablePublicInternetRoute:
+    Type: "AWS::EC2::Route"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTablePublic
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  RouteTableAssociationLambdaAPrivate:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      SubnetId: !Ref SubnetLambdaAPrivate
+      RouteTableId: !Ref RouteTablePrivate
+
+  RouteTableAssociationLambdaBPrivate:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Condition: CombinationAB
+    Properties:
+      SubnetId: !Ref SubnetLambdaBPrivate
+      RouteTableId: !Ref RouteTableBPrivate
+  
+  ##############################################################################
+  ############################### Security Groups ##############################
+  ##############################################################################
+
+  SecurityGroupLambda:
+    Type: "AWS::EC2::SecurityGroup"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      GroupDescription: "Allow traffic to Lambda"
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ""
+            - - !Ref Prefix
+              - -Lambda
+
+  SecurityGroupSSHAccess:
+    Type: "AWS::EC2::SecurityGroup"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      GroupDescription: "Allow SSH access (22 port)"
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ""
+            - - !Ref Prefix
+              - -SSHAccess
+
+  SecurityGroupCodebuild:
+    Type: "AWS::EC2::SecurityGroup"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      GroupDescription: "Allow trafic to and from Codebuild"
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ""
+            - - !Ref Prefix
+              - -Codebuild
+
+  ########## Security Groups Inbound Rules ##############################
+
+  SGSShAccessIngressTMIP:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Description: "Allow SSH Access from TechMagic"
+      GroupId: !Ref SecurityGroupSSHAccess
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 45.89.91.150/32
+
+  SGSSHAccessIngressTMIP2:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Description: "Allow SSH Access from TechMagic"
+      GroupId: !Ref SecurityGroupSSHAccess
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 91.196.52.62/32
+  
+  SGSSHAccessIngressTMIP3:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Description: "Allow SSH Access from TechMagic VPN"
+      GroupId: !Ref SecurityGroupSSHAccess
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 52.59.6.94/32
+
+  #### Lambda 
+  SGLambdaIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Description: "Allow TCP 443 from TechMagic VPN"
+      GroupId: !Ref SecurityGroupLambda
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 52.59.6.94/32
+
+  ########## Security Groups Outbound Rules
+
+  #### Lambda
+  SGLambdaEgress3:
+    Type: AWS::EC2::SecurityGroupEgress
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Description: "Atlas MongoDB"
+      GroupId: !Ref SecurityGroupLambda
+      FromPort: 27017
+      ToPort: 27017
+      IpProtocol: tcp
+      CidrIp: !Ref AtlasVPCCidr
+
+######################################################################
+############################### S3 ###################################
+######################################################################
+
+  VpcLogBucket:
+      Type: "AWS::S3::Bucket"
+      DeletionPolicy: Delete
+      Properties:
+        BucketName: !Ref BucketName
+        PublicAccessBlockConfiguration:
+            BlockPublicAcls : true
+            BlockPublicPolicy : true
+            IgnorePublicAcls : true
+            RestrictPublicBuckets : true
+
+######################################################################
+######################### VPC Flow Logs ##############################
+######################################################################
+
+  # VpcLogBucket:
+  #   Condition: VpcLogBucketCondition
+  #   Type: 'AWS::S3::Bucket'
+  #   Properties:
+  #     PublicAccessBlockConfiguration:
+  #           BlockPublicAcls : true
+  #           BlockPublicPolicy : true
+  #           IgnorePublicAcls : true
+  #           RestrictPublicBuckets : true
+
+  VpcLogBucketPolicy:
+    Condition: VpcLogBucketCondition
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref VpcLogBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AWSLogDeliveryWrite
+          Effect: Allow
+          Principal:
+            Service: 'delivery.logs.amazonaws.com'
+          Action: 's3:PutObject'
+          Resource: !If [HasLogFilePrefix, !Sub '${VpcLogBucket.Arn}/${VpcFlowLogsFilePrefix}/AWSLogs/${AWS::AccountId}/*', !Sub '${VpcLogBucket.Arn}/AWSLogs/${AWS::AccountId}/*']
+          Condition:
+            StringEquals:
+              's3:x-amz-acl': 'bucket-owner-full-control'
+        - Sid: AWSLogDeliveryAclCheck
+          Effect: Allow
+          Principal:
+            Service: 'delivery.logs.amazonaws.com'
+          Action: 's3:GetBucketAcl'
+          Resource: !GetAtt 'VpcLogBucket.Arn'
+        - Sid: AllowSSLRequestsOnly
+          Effect: Deny
+          Principal: '*'
+          Action: 's3:*'
+          Resource:
+          - !GetAtt 'VpcLogBucket.Arn'
+          - !Sub '${VpcLogBucket.Arn}/*'
+          Condition:
+            Bool:
+              'aws:SecureTransport': false
+
+  VpcFlowLogExistingBucket:
+    Condition: ExistingBucket
+    Type: 'AWS::EC2::FlowLog'
+    Properties:
+      LogDestination: !If [HasLogFilePrefix, !Sub 'arn:aws:s3:::${VpcFlowLogsBucketName}/${VpcFlowLogsFilePrefix}/', !Sub 'arn:aws:s3:::${VpcFlowLogsBucketName}']
+      LogDestinationType: s3
+      ResourceId: !Ref VPC
+      ResourceType: 'VPC'
+      TrafficType: !Ref TrafficType      
+      LogFormat: '${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status} ${vpc-id} ${az-id} ${instance-id} ${pkt-srcaddr} ${pkt-dstaddr} ${region} ${subnet-id} ${sublocation-id} ${sublocation-type} ${tcp-flags} ${type} ${flow-direction} ${pkt-dst-aws-service} ${pkt-src-aws-service} ${traffic-path}'
+      MaxAggregationInterval: 600
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ""
+            - - !Ref VPC
+              - -FlowLogs
+
+######################################################################
+############################### OUTPUTS ##############################
+######################################################################
+
+Outputs:
+
+  StackName:
+    Description: "Stack name"
+    Value: !Sub "${AWS::StackName}"
+
+  CidrBlock:
+    Description: "The set of IP addresses for the VPC."
+    Value: !GetAtt "VPC.CidrBlock"
+    Export:
+      Name: !Sub "${AWS::StackName}-CidrBlock"
+
+  VPC:
+    Description: "VPC"
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VPC"
+
+  SubnetsPublic:
+    Description: "Subnets public"
+    Value:
+      !Join [",", [!If [ CombinationAB, !Ref SubnetAPublic, !Ref "AWS::NoValue"], !If [ CombinationAB, !Ref SubnetBPublic, !Ref "AWS::NoValue"]]]
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetsPublic"
+
+  SubnetAPublic:
+    Condition: CombinationAB
+    Description: "Subnet A public"
+    Value: !Ref SubnetAPublic
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetAPublic"
+
+  SubnetBPublic:
+    Condition: CombinationAB
+    Description: "Subnet B public"
+    Value: !Ref SubnetBPublic
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetBPublic"
+
+  SubnetLambdaAPrivate:
+    Condition: CombinationAB
+    Description: "Subnet Lambda Pivate A"
+    Value: !Ref SubnetLambdaAPrivate
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetLambdaAPrivate"
+
+  SubnetLambdaBPrivate:
+    Condition: CombinationAB
+    Description: "Subnet Lambda Pivate B"
+    Value: !Ref SubnetLambdaBPrivate
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetLambdaBPrivate"
+
+  SecurityGroupLambda:
+    Description: "SecurityGroupLambda"
+    Value: !Ref SecurityGroupLambda
+    Export:
+      Name: !Sub "${AWS::StackName}-SecurityGroupLambda"
+
+  SecurityGroupSSHAccess:
+    Description: "SecurityGroupSSHAccess"
+    Value: !Ref SecurityGroupSSHAccess
+    Export:
+      Name: !Sub "${AWS::StackName}-SecurityGroupSSHAccess"
+
+  SecurityGroupCodebuild:
+    Description: "SecurityGroupCodebuild"
+    Value: !Ref SecurityGroupCodebuild
+    Export:
+      Name: !Sub "${AWS::StackName}-SecurityGroupCodebuild"
