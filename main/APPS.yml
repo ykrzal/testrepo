@@ -1,1 +1,73 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Template to install ZAP instance (Security check)'
 
+Parameters:
+  VpcId:
+    Description: "VpcId"
+    Type: String
+  name:
+    Description: "VpcId"
+    Type: String
+  branch:
+    Description: "VpcId"
+    Type: String
+
+Resources:
+  ## SG  ###########################################################################
+      InstanceSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            VpcId: !Ref VpcId
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 1
+            SecurityGroupIngress:
+              - IpProtocol: tcp
+                FromPort: '22'
+                ToPort: '22'
+                CidrIp: '52.59.6.94/32'
+            Tags:
+              - Key: Name
+                Value: !Ref name
+      
+      InstanceSecurityGroup2:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            VpcId: !Ref VpcId
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 2
+            SecurityGroupIngress:
+              - IpProtocol: tcp
+                FromPort: '23'
+                ToPort: '23'
+                CidrIp: '52.59.6.94/32'
+            Tags:
+              - Key: Name
+                Value: !Ref name
+                
+      InstanceSecurityGroup3:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            VpcId: !Ref VpcId
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 3
+            SecurityGroupIngress:
+              - IpProtocol: tcp
+                FromPort: '23'
+                ToPort: '23'
+                CidrIp: '52.59.6.94/32'
+            Tags:
+              - Key: Name
+                Value: !Ref name
+                
+      InstanceSecurityGroup4:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            VpcId: !Ref VpcId
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 4
+            SecurityGroupIngress:
+              - IpProtocol: tcp
+                FromPort: '23'
+                ToPort: '23'
+                CidrIp: '52.59.6.94/32'
+            Tags:
+              - Key: Name
+                Value: !Ref name
+  
