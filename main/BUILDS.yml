@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Template to install ZAP instance (Security check)!'
+Description: 'Template to install ZAP instance (Security check)'
 
 Parameters:
   VpcId:
