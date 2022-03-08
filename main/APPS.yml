@@ -33,7 +33,7 @@ Resources:
         Type: AWS::EC2::SecurityGroup
         Properties:
             VpcId: !Ref VpcId
-            GroupDescription: Allow all SSH from TM VPN BUILD CLI 2
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 4
             SecurityGroupIngress:
               - IpProtocol: tcp
                 FromPort: '23'
