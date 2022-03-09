@@ -291,7 +291,7 @@ Resources:
       SubnetId: !Ref SubnetAPublic
       Tags:
         - Key: Name
-          Value: NAT-Lambda-AB
+          Value: NAT-Lambda-A
 
   NatGatewayB:
     Type: "AWS::EC2::NatGateway"
@@ -303,7 +303,7 @@ Resources:
       SubnetId: !Ref SubnetBPublic
       Tags:
         - Key: Name
-          Value: NAT-Lambda-BA
+          Value: NAT-Lambda-B
 
   ######### Route A/B ################################
   PublicNatARoute:
@@ -453,7 +453,7 @@ Resources:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      Description: "Allow SSH Access from TechMagic VPN"
+      Description: "Allow SSH Access from TechMagic Yura"
       GroupId: !Ref SecurityGroupSSHAccess
       IpProtocol: tcp
       FromPort: 22

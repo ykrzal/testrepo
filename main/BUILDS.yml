@@ -19,7 +19,7 @@ Resources:
         Type: AWS::EC2::SecurityGroup
         Properties:
             VpcId: !Ref VpcId
-            GroupDescription: Allow all SSH from TM VPN BUILD CLI Yura
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI YuraYuraYura
             SecurityGroupIngress:
               - IpProtocol: tcp
                 FromPort: '22'
@@ -27,7 +27,7 @@ Resources:
                 CidrIp: '52.59.6.94/32'
             Tags:
               - Key: Name
-                Value: !Ref Yura
+                Value: !Ref name
       
       InstanceSecurityGroup2:
         Type: AWS::EC2::SecurityGroup
