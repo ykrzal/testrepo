@@ -201,7 +201,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: "Private Lambda - A"
+          Value: "Private Lambda - AB"
   
   SubnetLambdaBPrivate:
     Type: "AWS::EC2::Subnet"
