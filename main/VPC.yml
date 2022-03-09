@@ -466,7 +466,7 @@ Resources:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      Description: "Allow TCP 443 from TechMagic VPN"
+      Description: "Allow TCP 443 from TechMagic yura"
       GroupId: !Ref SecurityGroupLambda
       IpProtocol: tcp
       FromPort: 443
