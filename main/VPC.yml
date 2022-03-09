@@ -303,7 +303,7 @@ Resources:
       SubnetId: !Ref SubnetBPublic
       Tags:
         - Key: Name
-          Value: NAT-Lambda-BA
+          Value: NAT-Lambda-B
 
   ######### Route A/B ################################
   PublicNatARoute:
