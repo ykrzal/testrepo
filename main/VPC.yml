@@ -291,7 +291,7 @@ Resources:
       SubnetId: !Ref SubnetAPublic
       Tags:
         - Key: Name
-          Value: NAT-Lambda-A
+          Value: NAT-Lambda-AB
 
   NatGatewayB:
     Type: "AWS::EC2::NatGateway"
@@ -303,7 +303,7 @@ Resources:
       SubnetId: !Ref SubnetBPublic
       Tags:
         - Key: Name
-          Value: NAT-Lambda-B
+          Value: NAT-Lambda-BA
 
   ######### Route A/B ################################
   PublicNatARoute:
