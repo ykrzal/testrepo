@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Template to install ZAP  instance (Security check'
+Description: 'Template to install ZAP  instance (Security check!'
 
 Parameters:
   VpcId:
@@ -33,7 +33,7 @@ Resources:
         Type: AWS::EC2::SecurityGroup
         Properties:
             VpcId: !Ref VpcId
-            GroupDescription: Allow all SSH from TM VPN BUILD CLI 4
+            GroupDescription: Allow all SSH from TM VPN BUILD CLI 44
             SecurityGroupIngress:
               - IpProtocol: tcp
                 FromPort: '23'
